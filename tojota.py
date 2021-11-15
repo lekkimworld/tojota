@@ -18,6 +18,8 @@ import glob
 import json
 import logging
 import os
+from typing import List
+import importlib
 from pathlib import Path
 import platform
 import sys
@@ -40,9 +42,35 @@ CONFIG_KEYS = {
     "password": True,
     "timezone": False,
     "vin": True,
+    "plugins": False,
     KEY_USE_INFLUXDB: False,
     KEY_USE_REMOTE_CONTROL: False
 }
+
+class MyTPlugin:
+    def init(self, config_data: dict) -> None:
+        """
+        Called to initialize the plugin
+        """
+        pass
+    
+    def odometer(self, fresh: bool, odometer: int, odometer_unit: str, fuel_percent: float) -> None:
+        """
+        Called to tell plugin about odometer status
+        """
+        pass
+    
+    def trip_data(self, trip_id: str, trip_data: dict) -> None:
+        """
+        Called once for each trip loaded
+        """
+        pass
+    
+    def trip_data_done(self):
+        """
+        Loaded once looping through trips is done
+        """
+        pass
 
 class Myt:
     """
@@ -60,8 +88,19 @@ class Myt:
         else:
             self.login()
 
+        # read and initialize any plugins
+        self.plugins: List[MyTPlugin] = list()
+        if "plugins" in self.config_data.keys():
+            plugins = self.config_data["plugins"]
+            for plugin in plugins:
+                log.debug("Instantiating plugin: %s", plugin)
+                p: MyTPlugin = importlib.import_module("plugin_{}".format(plugin), ".").Plugin()
+                self.plugins.append(p)
+                p.init(self.config_data)
+
     @staticmethod
-    def _get_environment_or_filedata(file_data, file_key, env_key):
+    def get_environment_or_filedata(file_data, file_key):
+        env_key = "TOJOTA_{}".format(file_key.upper())
         if (file_data is None or file_data.get(file_key) is None):
             log.debug('Reading %s from environment', file_key)
             return os.getenv(env_key)
@@ -85,8 +124,7 @@ class Myt:
             KEY_USE_INFLUXDB: False
         }
         for x in CONFIG_KEYS.keys():
-            value = Myt._get_environment_or_filedata(
-                file_data, x, "TOJOTA_" + x.upper())
+            value = Myt.get_environment_or_filedata(file_data, x)
 
             # if required ensure we have it
             if value is None and CONFIG_KEYS.get(x):
@@ -97,6 +135,11 @@ class Myt:
                 x: value
             })
             log.debug('Read %s', x)
+
+        # add unknown keys (for plugins)
+        for x in file_data.keys():
+            if not x in CONFIG_KEYS.keys():
+                config_data[x] = file_data[x]
 
         return config_data
     
@@ -440,6 +483,10 @@ def main():
     print('Odometer {} {}, {}% fuel left'.format(odometer, odometer_unit, fuel_percent))
     odometer_to_db(myt, fresh, fuel_percent, odometer)
 
+    # call plugins if any to tell about odometer status
+    for plugin in myt.plugins:
+        plugin.odometer(fresh=fresh, odometer=odometer, odometer_unit=odometer_unit, fuel_percent=fuel_percent)
+
     # Get remote control status
     if myt.config_data['use_remote_control']:
         log.info('Get remote control status...')
@@ -473,7 +520,17 @@ def main():
     ls = 0
     fresh_data = 0
     for trip in trips['recentTrips']:
-        trip_data, fresh = myt.get_trip(trip['tripId'])
+        trip_id = trip['tripId']
+        trip_data, fresh = myt.get_trip(trip_id)
+
+        # call plugins if any
+        for plugin in myt.plugins:
+            # make a copy of the trip data and add trip id and trip summary and call plugin
+            trip_data_copy = trip_data.copy()
+            trip_data_copy["tripId"] = trip_id
+            trip_data_copy["tripSummary"] = trip
+            plugin.trip_data(trip_id, trip_data_copy)
+
         fresh_data += fresh
         stats = trip_data['statistics']
         # Parse UTC datetime strings to local time
@@ -497,10 +554,14 @@ def main():
         print('{} {} -> {} {}: {} km, {} km/h, {:.2f} l/100 km, {:.2f} l'.
               format(start_time, start_address, end_time, end_address, stats['totalDistanceInKm'],
                      stats['averageSpeedInKmph'], average_consumption, stats['fuelConsumptionInL']))
+    
     if fresh_data and myt.config_data['use_influxdb']:
         insert_into_influxdb('short_term_average_consumption', (ls/kms)*100)
     print('Total distance: {:.3f} km, Fuel consumption: {:.2f} l, {:.2f} l/100 km'.format(kms, ls, (ls/kms)*100))
 
+    # call plugins if any telling them we are done looping trips
+    for plugin in myt.plugins:
+        plugin.trip_data_done()
 
 if __name__ == "__main__":
     sys.exit(main())
