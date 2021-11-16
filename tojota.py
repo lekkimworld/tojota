@@ -90,8 +90,8 @@ class Myt:
 
         # read and initialize any plugins
         self.plugins: List[MyTPlugin] = list()
-        if "plugins" in self.config_data.keys():
-            plugins = self.config_data["plugins"]
+        if "plugins" in self.config_data.keys() and None != self.config_data["plugins"]:
+            plugins = self.config_data["plugins"].split(" ")
             for plugin in plugins:
                 log.debug("Instantiating plugin: %s", plugin)
                 p: MyTPlugin = importlib.import_module("plugin_{}".format(plugin), ".").Plugin()

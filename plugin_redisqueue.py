@@ -4,6 +4,7 @@ import logging
 import redis
 import json
 import os
+from datetime import datetime
 
 DEFAULT_TRIPS_QUEUE_KEY = "trips_queue"
 DEFAULT_ODOMETER_QUEUE_KEY = "odometer_queue"
@@ -42,7 +43,8 @@ class Plugin(MyTPlugin):
         odometer_data = {
             "odometer": odometer,
             "odometer_unit": odometer_unit,
-            "fuel_percent": fuel_percent
+            "fuel_percent": fuel_percent,
+            "timestamp": datetime.now().isoformat()
         }
         json_str = json.dumps(odometer_data)
         self._redis.rpush(self._odometer_key, json_str)
