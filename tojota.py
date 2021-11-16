@@ -102,7 +102,7 @@ class Myt:
     def get_environment_or_filedata(file_data, file_key):
         env_key = "TOJOTA_{}".format(file_key.upper())
         if (file_data is None or file_data.get(file_key) is None):
-            log.debug('Reading %s from environment', file_key)
+            log.debug('Reading %s from environment', env_key)
             return os.getenv(env_key)
         else:
             log.debug('Reading %s from file', file_key)
