@@ -557,7 +557,10 @@ def main():
     
     if fresh_data and myt.config_data['use_influxdb']:
         insert_into_influxdb('short_term_average_consumption', (ls/kms)*100)
-    print('Total distance: {:.3f} km, Fuel consumption: {:.2f} l, {:.2f} l/100 km'.format(kms, ls, (ls/kms)*100))
+    liter_per_kms = 0
+    if kms != 0:
+        liter_per_kms = (ls/kms)*100
+    print('Total distance: {:.3f} km, Fuel consumption: {:.2f} l, {:.2f} l/100 km'.format(kms, ls, liter_per_kms))
 
     # call plugins if any telling them we are done looping trips
     for plugin in myt.plugins:
