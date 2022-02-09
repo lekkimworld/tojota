@@ -545,8 +545,21 @@ def main():
             end = trip['endAddress'].split(',')
         except KeyError:
             end = ['Unknown', ' Unknown']
-        start_address = '{},{}'.format(start[0], start[1])
-        end_address = '{},{}'.format(end[0], end[1])
+        
+        # build start address
+        start_address = ''
+        if len(start) >= 2:
+            start_address = '{},{}'.format(start[0], start[1])
+        else:
+            print('Unable to parse start address correctly - no comma ({})', start)
+
+        # build end address
+        end_address = ''
+        if (len(end) >= 2):
+            end_address = '{},{}'.format(end[0], end[1])
+        else:
+            print('Unable to parse end address correctly - no comma ({})', end)
+        
         kms += stats['totalDistanceInKm']
         ls += stats['fuelConsumptionInL']
         average_consumption = (stats['fuelConsumptionInL']/stats['totalDistanceInKm'])*100
