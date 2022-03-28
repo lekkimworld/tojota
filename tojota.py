@@ -485,12 +485,12 @@ def main():
         odometer, odometer_unit, fuel_percent, fresh = myt.get_odometer_fuel()
         print('Odometer {} {}, {}% fuel left'.format(odometer, odometer_unit, fuel_percent))
         odometer_to_db(myt, fresh, fuel_percent, odometer)
+
+        # call plugins if any to tell about odometer status
+        for plugin in myt.plugins:
+            plugin.odometer(fresh=fresh, odometer=odometer, odometer_unit=odometer_unit, fuel_percent=fuel_percent)
     except ValueError:
         print('Didn\'t get odometer information!')
-
-    # call plugins if any to tell about odometer status
-    for plugin in myt.plugins:
-        plugin.odometer(fresh=fresh, odometer=odometer, odometer_unit=odometer_unit, fuel_percent=fuel_percent)
 
     # Get remote control status
     if myt.config_data['use_remote_control']:
