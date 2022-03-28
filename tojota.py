@@ -23,6 +23,7 @@ import importlib
 from pathlib import Path
 import platform
 import sys
+import uuid
 
 import pendulum
 import requests
@@ -304,7 +305,8 @@ class Myt:
         odometer_file = odometer_path / 'odometer-{}'.format(pendulum.now())
         token = self.user_data['token']
         vin = self.config_data['vin']
-        headers = {'Cookie': f'iPlanetDirectoryPro={token}'}
+        headers = {'Cookie': f'iPlanetDirectoryPro={token}',
+                   'X-TME-APP-VERSION': '4.10.0', 'UUID': uuid.uuid4()}
         url = f'https://myt-agg.toyota-europe.com/cma/api/vehicle/{vin}/addtionalInfo'  # (sic)
         r = requests.get(url, headers=headers)
         if r.status_code != 200:
@@ -479,9 +481,12 @@ def main():
 
     # Get odometer and fuel tank status
     log.info('Get odometer info...')
-    odometer, odometer_unit, fuel_percent, fresh = myt.get_odometer_fuel()
-    print('Odometer {} {}, {}% fuel left'.format(odometer, odometer_unit, fuel_percent))
-    odometer_to_db(myt, fresh, fuel_percent, odometer)
+    try:
+        odometer, odometer_unit, fuel_percent, fresh = myt.get_odometer_fuel()
+        print('Odometer {} {}, {}% fuel left'.format(odometer, odometer_unit, fuel_percent))
+        odometer_to_db(myt, fresh, fuel_percent, odometer)
+    except ValueError:
+        print('Didn\'t get odometer information!')
 
     # call plugins if any to tell about odometer status
     for plugin in myt.plugins:
