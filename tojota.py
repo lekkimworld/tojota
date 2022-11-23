@@ -138,9 +138,10 @@ class Myt:
             log.debug('Read %s', x)
 
         # add unknown keys (for plugins)
-        for x in file_data.keys():
-            if not x in CONFIG_KEYS.keys():
-                config_data[x] = file_data[x]
+        if file_data:
+            for x in file_data.keys():
+                if not x in CONFIG_KEYS.keys():
+                    config_data[x] = file_data[x]
 
         return config_data
     
